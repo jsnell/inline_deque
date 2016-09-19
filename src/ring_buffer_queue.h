@@ -34,28 +34,28 @@ public:
     // Adding new elements at back of queue.
 
     void push_back(const T& e) {
-        if (ptr_.size_ == capacity_) {
+        if (full()) {
             overflow();
         }
         ptr_.construct(&e_[ptr_write()], e);
-        ptr_.size_++;
+        ptr_.write_++;
     }
 
     template<typename... Args>
     void emplace_back(Args&&... args) {
-        if (ptr_.size_ == capacity_) {
+        if (full()) {
             overflow();
         }
-        ptr_.construct(&e_[index(ptr_.read_ + ptr_.size_)],
+        ptr_.construct(&e_[ptr_write()],
                        std::forward<Args>(args)...);
-        ptr_.size_++;
+        ptr_.write_++;
     }
 
     // Accessing items (front, back, random access, pop).
 
     const T& front() const {
         require_nonempty();
-        return e_[ptr_.read_];
+        return e_[ptr_read()];
     }
 
     const T& back() const {
@@ -64,31 +64,30 @@ public:
     }
 
     T& operator[] (size_t i) {
-        return e_[index(ptr_.read_ + i)];
+        return e_[ptr_read(i)];
     }
 
     const T& operator[] (size_t i) const {
-        return e_[index(ptr_.read_ + i)];
+        return e_[ptr_read(i)];
     }
 
     T& at(size_t i) {
         if (i >= size()) {
             throw std::out_of_range("index too large");
         }
-        return e_[index(ptr_.read_ + i)];
+        return e_[ptr_read(i)];
     }
 
     void pop_front() {
         require_nonempty();
-        ptr_.destroy(&e_[ptr_.read_]);
-        ptr_.read_ = index(ptr_.read_ + 1);
-        --ptr_.size_;
+        ptr_.destroy(&e_[ptr_read()]);
+        ptr_.read_++;
         shrink();
     }
 
     void pop_back() {
         require_nonempty();
-        --ptr_.size_;
+        ptr_.write_--;
         ptr_.destroy(&e_[ptr_write()]);
         shrink();
     }
@@ -100,7 +99,7 @@ public:
     }
 
     size_t size() const {
-        return ptr_.size_;
+        return ptr_.write_ - ptr_.read_;
     }
 
     size_t capacity() const {
@@ -270,8 +269,8 @@ public:
     }
 
 protected:
-    size_t index(size_t ptr) const {
-        return ptr & (capacity_ - 1);
+    bool full() {
+        return (ptr_.read_ + capacity_ - 1 == ptr_.write_);
     }
 
     void overflow() {
@@ -279,7 +278,7 @@ protected:
     }
 
     void shrink() {
-        if (ptr_.read_ == 0 && capacity_ > size() * 2) {
+        if (ptr_read() == 0 && capacity_ > size() * 2) {
             shrink_to_fit();
         }
     }
@@ -293,30 +292,30 @@ protected:
         size_t current_size = size();
         for (int i = 0; i < current_size; ++i) {
             ptr_.construct(&new_e[i],
-                                  std::move(e_[index(ptr_.read_ + i)]));
+                           std::move(e_[ptr_read(i)]));
         }
         ptr_.deallocate(e_, capacity_);
         e_ = new_e;
         capacity_ = new_capacity;
         ptr_.read_ = 0;
+        ptr_.write_ = current_size;
     }
 
     void move_from(ring_buffer_queue& other) {
-        ptr_.read_ = other.ptr_.read_;
-        ptr_.size_ = other.ptr_.size_;
+        /// XXX move
+        ptr_ = other.ptr_;
         capacity_ = other.capacity_;
         e_ = other.e_;
         other.e_ = NULL;
     }
 
     void clone_from(const ring_buffer_queue& other) {
-        ptr_.read_ = other.ptr_.read_;
-        ptr_.size_ = other.ptr_.size_;
+        ptr_ = other.ptr_;
         capacity_ = other.capacity_;
         e_ = ptr_.allocate(capacity_);
         for (size_t i = 0; i < size(); ++i) {
-            ptr_.construct(&e_[index(ptr_.read_ + i)],
-                                  other.e_[index(ptr_.read_ + i)]);
+            ptr_.construct(&e_[ptr_read(i)],
+                           other.e_[ptr_read(i)]);
         }
     }
 
@@ -334,8 +333,12 @@ protected:
         }
     }
 
+    uint32_t ptr_read(uint32_t offset = 0) const {
+        return (ptr_.read_ + offset) & (capacity_ - 1);
+    }
+
     uint32_t ptr_write(uint32_t offset = 0) const {
-        return index(ptr_.read_ + ptr_.size_ + offset);
+        return (ptr_.write_ + offset) & (capacity_ - 1);
     }
 
     T* e_;
@@ -347,7 +350,7 @@ protected:
         }
 
         uint32_t read_ = 0;
-        uint32_t size_ = 0;
+        uint32_t write_ = 0;
     } ptr_;
 };
 
