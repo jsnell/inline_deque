@@ -7,6 +7,8 @@
 #define RING_BUFFER_QUEUE_H
 
 #include <stdexcept>
+#include <cstddef>
+#include <limits>
 
 template<typename T,
          size_t InitialCapacity = 8,
@@ -17,12 +19,12 @@ public:
     ring_buffer_queue(size_t initial_capacity = InitialCapacity,
                       const Allocator& alloc = Allocator())
         : capacity_(initial_capacity),
-          alloc_(alloc) {
+          ptr_(alloc) {
         capacity_ = 1;
         while (capacity_ < initial_capacity) {
             capacity_ *= 2;
         }
-        e_ = alloc_.allocate(capacity_);
+        e_ = ptr_.allocate(capacity_);
     }
 
     ~ring_buffer_queue() {
@@ -32,79 +34,83 @@ public:
     // Adding new elements at back of queue.
 
     void push_back(const T& e) {
-        if (read_ptr_ == index(write_ptr_ + 1)) {
+        if (ptr_.read_ == index(ptr_.write_ + 1)) {
             overflow();
         }
-        alloc_.construct(&e_[write_ptr_], e);
-        write_ptr_ = index(write_ptr_ + 1);
+        ptr_.construct(&e_[ptr_.write_], e);
+        ptr_.write_ = index(ptr_.write_ + 1);
     }
 
     template<typename... Args>
     void emplace_back(Args&&... args) {
-        if (read_ptr_ == index(write_ptr_ + 1)) {
+        if (ptr_.read_ == index(ptr_.write_ + 1)) {
             overflow();
         }
-        alloc_.construct(&e_[write_ptr_], std::forward<Args>(args)...);
-        write_ptr_ = index(write_ptr_ + 1);
+        ptr_.construct(&e_[ptr_.write_], std::forward<Args>(args)...);
+        ptr_.write_ = index(ptr_.write_ + 1);
     }
 
     // Accessing items (front, back, random access, pop).
 
     const T& front() const {
         require_nonempty();
-        return e_[read_ptr_];
+        return e_[ptr_.read_];
     }
 
     const T& back() const {
         require_nonempty();
-        return e_[index(write_ptr_ - 1)];
+        return e_[index(ptr_.write_ - 1)];
     }
 
     T& operator[] (size_t i) {
-        return e_[index(read_ptr_ + i)];
+        return e_[index(ptr_.read_ + i)];
     }
 
     const T& operator[] (size_t i) const {
-        return e_[index(read_ptr_ + i)];
+        return e_[index(ptr_.read_ + i)];
     }
 
     T& at(size_t i) {
         if (i >= size()) {
             throw std::out_of_range("index too large");
         }
-        return e_[index(read_ptr_ + i)];
+        return e_[index(ptr_.read_ + i)];
     }
 
     void pop_front() {
         require_nonempty();
-        alloc_.destroy(&e_[read_ptr_]);
-        read_ptr_ = index(read_ptr_ + 1);
+        ptr_.destroy(&e_[ptr_.read_]);
+        ptr_.read_ = index(ptr_.read_ + 1);
         shrink();
     }
 
     void pop_back() {
         require_nonempty();
-        write_ptr_ = index(write_ptr_ - 1);
-        alloc_.destroy(&e_[write_ptr_]);
+        ptr_.write_ = index(ptr_.write_ - 1);
+        ptr_.destroy(&e_[ptr_.write_]);
         shrink();
     }
 
     // Size of queue
 
     bool empty() const {
-        return read_ptr_ == write_ptr_;
+        return ptr_.read_ == ptr_.write_;
     }
 
     size_t size() const {
-        if (write_ptr_ < read_ptr_) {
-            return capacity_ - (read_ptr_ - write_ptr_);
+        if (ptr_.write_ < ptr_.read_) {
+            return capacity_ - (ptr_.read_ - ptr_.write_);
         } else {
-            return write_ptr_ - read_ptr_;
+            return ptr_.write_ - ptr_.read_;
         }
     }
 
     size_t capacity() const {
         return capacity_;
+    }
+
+    size_t max_capacity() const {
+        return std::numeric_limits<uint32_t>::max();
     }
 
     void clear() {
@@ -123,12 +129,12 @@ public:
     // Copying / assignment
 
     ring_buffer_queue(const ring_buffer_queue& other)
-        : alloc_(other.alloc_) {
+        : ptr_(other.ptr_) {
         clone_from(other);
     }
 
     ring_buffer_queue(ring_buffer_queue&& other)
-        : alloc_(other.alloc_) {
+        : ptr_(other.ptr_) {
         move_from(other);
     }
 
@@ -275,7 +281,7 @@ protected:
     }
 
     void shrink() {
-        if (read_ptr_ == 0 && capacity_ > size() * 2) {
+        if (ptr_.read_ == 0 && capacity_ > size() * 2) {
             shrink_to_fit();
         }
     }
@@ -285,35 +291,35 @@ protected:
         if (new_capacity == capacity_) {
             return;
         }
-        T* new_e = alloc_.allocate(new_capacity);
+        T* new_e = ptr_.allocate(new_capacity);
         size_t current_size = size();
         for (int i = 0; i < current_size; ++i) {
-            alloc_.construct(&new_e[i],
-                                  std::move(e_[index(read_ptr_ + i)]));
+            ptr_.construct(&new_e[i],
+                                  std::move(e_[index(ptr_.read_ + i)]));
         }
-        alloc_.deallocate(e_, capacity_);
+        ptr_.deallocate(e_, capacity_);
         e_ = new_e;
         capacity_ = new_capacity;
-        read_ptr_ = 0;
-        write_ptr_ = current_size;
+        ptr_.read_ = 0;
+        ptr_.write_ = current_size;
     }
 
     void move_from(ring_buffer_queue& other) {
-        read_ptr_ = other.read_ptr_;
-        write_ptr_ = other.write_ptr_;
+        ptr_.read_ = other.ptr_.read_;
+        ptr_.write_ = other.ptr_.write_;
         capacity_ = other.capacity_;
         e_ = other.e_;
         other.e_ = NULL;
     }
 
     void clone_from(const ring_buffer_queue& other) {
-        read_ptr_ = other.read_ptr_;
-        write_ptr_ = other.write_ptr_;
+        ptr_.read_ = other.ptr_.read_;
+        ptr_.write_ = other.ptr_.write_;
         capacity_ = other.capacity_;
-        e_ = alloc_.allocate(capacity_);
+        e_ = ptr_.allocate(capacity_);
         for (size_t i = 0; i < size(); ++i) {
-            alloc_.construct(&e_[index(read_ptr_ + i)],
-                                  other.e_[index(read_ptr_ + i)]);
+            ptr_.construct(&e_[index(ptr_.read_ + i)],
+                                  other.e_[index(ptr_.read_ + i)]);
         }
     }
 
@@ -321,21 +327,27 @@ protected:
         // e_ will be NULL if this object has been the source of a move.
         if (e_ != NULL) {
             clear();
-            alloc_.deallocate(e_, capacity_);
+            ptr_.deallocate(e_, capacity_);
         }
     }
 
     void require_nonempty() const {
-        if (read_ptr_ == write_ptr_) {
+        if (ptr_.read_ == ptr_.write_) {
             throw std::out_of_range("empty queue");
         }
     }
 
     T* e_;
-    size_t capacity_;
-    uint32_t read_ptr_ = 0;
-    uint32_t write_ptr_ = 0;
-    Allocator alloc_;
+    uint32_t capacity_;
+
+    // A dummy struct just used for empty base class optimization.
+    struct ptrs : Allocator {
+        ptrs(const Allocator& alloc) : Allocator(alloc) {
+        }
+
+        uint32_t read_ = 0;
+        uint32_t write_ = 0;
+    } ptr_;
 };
 
 #endif // RING_BUFFER_QUEUE_H
