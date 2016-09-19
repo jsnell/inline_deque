@@ -37,7 +37,7 @@ public:
         if (full()) {
             overflow();
         }
-        ptr_.construct(&e_[ptr_write()], e);
+        ptr_.construct(&slot(ptr_write()), e);
         ptr_.write_++;
     }
 
@@ -46,7 +46,7 @@ public:
         if (full()) {
             overflow();
         }
-        ptr_.construct(&e_[ptr_write()],
+        ptr_.construct(&slot(ptr_write()),
                        std::forward<Args>(args)...);
         ptr_.write_++;
     }
@@ -55,32 +55,42 @@ public:
 
     const T& front() const {
         require_nonempty();
-        return e_[ptr_read()];
+        return slot(ptr_read());
     }
 
     const T& back() const {
         require_nonempty();
-        return e_[ptr_write(-1)];
+        return slot(ptr_write(-1));
+    }
+
+    T& front() {
+        require_nonempty();
+        return slot(ptr_read());
+    }
+
+    T& back() {
+        require_nonempty();
+        return slot(ptr_write(-1));
     }
 
     T& operator[] (size_t i) {
-        return e_[ptr_read(i)];
+        return slot(ptr_read(i));
     }
 
     const T& operator[] (size_t i) const {
-        return e_[ptr_read(i)];
+        return slow(ptr_read(i));
     }
 
     T& at(size_t i) {
         if (i >= size()) {
             throw std::out_of_range("index too large");
         }
-        return e_[ptr_read(i)];
+        return slot(ptr_read(i));
     }
 
     void pop_front() {
         require_nonempty();
-        ptr_.destroy(&e_[ptr_read()]);
+        ptr_.destroy(&slot(ptr_read()));
         ptr_.read_++;
         shrink();
     }
@@ -88,7 +98,7 @@ public:
     void pop_back() {
         require_nonempty();
         ptr_.write_--;
-        ptr_.destroy(&e_[ptr_write()]);
+        ptr_.destroy(&slot(ptr_write()));
         shrink();
     }
 
@@ -121,6 +131,8 @@ public:
         while (new_capacity > size() * 2) {
             new_capacity /= 2;
         }
+        // XXX oops, not doing anything with new_capacity...
+        // XXX enforce MinimumCapacity
     }
 
     // Copying / assignment
@@ -292,7 +304,7 @@ protected:
         size_t current_size = size();
         for (int i = 0; i < current_size; ++i) {
             ptr_.construct(&new_e[i],
-                           std::move(e_[ptr_read(i)]));
+                           std::move(slot(ptr_read(i))));
         }
         ptr_.deallocate(e_, capacity_);
         e_ = new_e;
@@ -305,6 +317,7 @@ protected:
         /// XXX move
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
+        // XXX need to dealloc e_ here?
         e_ = other.e_;
         other.e_ = NULL;
     }
@@ -312,10 +325,11 @@ protected:
     void clone_from(const ring_buffer_queue& other) {
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
+        // XXX need to dealloc e_ here?
         e_ = ptr_.allocate(capacity_);
         for (size_t i = 0; i < size(); ++i) {
-            ptr_.construct(&e_[ptr_read(i)],
-                           other.e_[ptr_read(i)]);
+            ptr_.construct(&slot(ptr_read(i)),
+                           other.slot(ptr_read(i)));
         }
     }
 
@@ -334,11 +348,21 @@ protected:
     }
 
     uint32_t ptr_read(uint32_t offset = 0) const {
-        return (ptr_.read_ + offset) & (capacity_ - 1);
+        return (ptr_.read_ + offset);
     }
 
     uint32_t ptr_write(uint32_t offset = 0) const {
-        return (ptr_.write_ + offset) & (capacity_ - 1);
+        return (ptr_.write_ + offset);
+    }
+
+    T& slot(uint32_t index) {
+        uint32_t actual_index = index & (capacity_ - 1);
+        return e_[actual_index];
+    }
+
+    const T& slot(uint32_t index) const {
+        uint32_t actual_index = index & (capacity_ - 1);
+        return e_[actual_index];
     }
 
     T* e_;
