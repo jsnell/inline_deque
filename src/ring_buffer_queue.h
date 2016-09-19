@@ -11,7 +11,7 @@
 #include <limits>
 
 template<typename T,
-         size_t InitialCapacity = 8,
+         size_t InitialCapacity = 1,
          size_t MinimumCapacity = 8,
          class Allocator = std::allocator<T>>
 class ring_buffer_queue {
@@ -21,10 +21,13 @@ public:
         : capacity_(initial_capacity),
           ptr_(alloc) {
         capacity_ = 1;
-        while (capacity_ < initial_capacity) {
-            capacity_ *= 2;
+        if (initial_capacity > 1) {
+            while (capacity_ < initial_capacity) {
+                capacity_ *= 2;
+            }
+            e_.e_ = ptr_.allocate(capacity_);
+        } else {
         }
-        e_ = ptr_.allocate(capacity_);
     }
 
     ~ring_buffer_queue() {
@@ -282,7 +285,11 @@ public:
 
 protected:
     bool full() {
-        return (ptr_.read_ + capacity_ - 1 == ptr_.write_);
+        if (capacity_ == 1) {
+            return ptr_.read_ != ptr_.write_;
+        } else {
+            return (ptr_.read_ + capacity_ - 1 == ptr_.write_);
+        }
     }
 
     void overflow() {
@@ -306,8 +313,10 @@ protected:
             ptr_.construct(&new_e[i],
                            std::move(slot(ptr_read(i))));
         }
-        ptr_.deallocate(e_, capacity_);
-        e_ = new_e;
+        if (capacity_ > 1) {
+            ptr_.deallocate(e_.e_, capacity_);
+        }
+        e_.e_ = new_e;
         capacity_ = new_capacity;
         ptr_.read_ = 0;
         ptr_.write_ = current_size;
@@ -317,16 +326,20 @@ protected:
         /// XXX move
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
-        // XXX need to dealloc e_ here?
-        e_ = other.e_;
+        if (capacity_ > 1) {
+            e_.e_ = other.e_.e_;
+        } else {
+            e_.inline_e_ = std::move(other.e_.inline_e_);
+        }
         other.e_ = NULL;
     }
 
     void clone_from(const ring_buffer_queue& other) {
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
-        // XXX need to dealloc e_ here?
-        e_ = ptr_.allocate(capacity_);
+        if (capacity_ > 1) {
+            e_.e_ = ptr_.allocate(capacity_);
+        }
         for (size_t i = 0; i < size(); ++i) {
             ptr_.construct(&slot(ptr_read(i)),
                            other.slot(ptr_read(i)));
@@ -335,9 +348,10 @@ protected:
 
     void reset() {
         // e_ will be NULL if this object has been the source of a move.
-        if (e_ != NULL) {
+        // (It'll be true even if it was an inline element).
+        if (e_.e_ != NULL) {
             clear();
-            ptr_.deallocate(e_, capacity_);
+            ptr_.deallocate(e_.e_, capacity_);
         }
     }
 
@@ -356,16 +370,28 @@ protected:
     }
 
     T& slot(uint32_t index) {
-        uint32_t actual_index = index & (capacity_ - 1);
-        return e_[actual_index];
+        if (capacity_ == 1) {
+            return e_.inline_e_;
+        } else {
+            uint32_t actual_index = index & (capacity_ - 1);
+            return e_.e_[actual_index];
+        }
     }
 
     const T& slot(uint32_t index) const {
-        uint32_t actual_index = index & (capacity_ - 1);
-        return e_[actual_index];
+        if (capacity_ == 1) {
+            return e_.inline_e_;
+        } else {
+            uint32_t actual_index = index & (capacity_ - 1);
+            return e_.e_[actual_index];
+        }
     }
 
-    T* e_;
+    union {
+        T* e_;
+        // XXX don't allocate this if if sizeof(T) > sizeof(void*).
+        T inline_e_;
+    } e_;
     uint32_t capacity_;
 
     // A dummy struct just used for empty base class optimization.
