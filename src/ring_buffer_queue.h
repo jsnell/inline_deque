@@ -34,20 +34,21 @@ public:
     // Adding new elements at back of queue.
 
     void push_back(const T& e) {
-        if (ptr_.read_ == index(ptr_.write_ + 1)) {
+        if (ptr_.size_ == capacity_) {
             overflow();
         }
-        ptr_.construct(&e_[ptr_.write_], e);
-        ptr_.write_ = index(ptr_.write_ + 1);
+        ptr_.construct(&e_[ptr_write()], e);
+        ptr_.size_++;
     }
 
     template<typename... Args>
     void emplace_back(Args&&... args) {
-        if (ptr_.read_ == index(ptr_.write_ + 1)) {
+        if (ptr_.size_ == capacity_) {
             overflow();
         }
-        ptr_.construct(&e_[ptr_.write_], std::forward<Args>(args)...);
-        ptr_.write_ = index(ptr_.write_ + 1);
+        ptr_.construct(&e_[index(ptr_.read_ + ptr_.size_)],
+                       std::forward<Args>(args)...);
+        ptr_.size_++;
     }
 
     // Accessing items (front, back, random access, pop).
@@ -59,7 +60,7 @@ public:
 
     const T& back() const {
         require_nonempty();
-        return e_[index(ptr_.write_ - 1)];
+        return e_[ptr_write(-1)];
     }
 
     T& operator[] (size_t i) {
@@ -81,28 +82,25 @@ public:
         require_nonempty();
         ptr_.destroy(&e_[ptr_.read_]);
         ptr_.read_ = index(ptr_.read_ + 1);
+        --ptr_.size_;
         shrink();
     }
 
     void pop_back() {
         require_nonempty();
-        ptr_.write_ = index(ptr_.write_ - 1);
-        ptr_.destroy(&e_[ptr_.write_]);
+        --ptr_.size_;
+        ptr_.destroy(&e_[ptr_write()]);
         shrink();
     }
 
     // Size of queue
 
     bool empty() const {
-        return ptr_.read_ == ptr_.write_;
+        return size() == 0;
     }
 
     size_t size() const {
-        if (ptr_.write_ < ptr_.read_) {
-            return capacity_ - (ptr_.read_ - ptr_.write_);
-        } else {
-            return ptr_.write_ - ptr_.read_;
-        }
+        return ptr_.size_;
     }
 
     size_t capacity() const {
@@ -301,12 +299,11 @@ protected:
         e_ = new_e;
         capacity_ = new_capacity;
         ptr_.read_ = 0;
-        ptr_.write_ = current_size;
     }
 
     void move_from(ring_buffer_queue& other) {
         ptr_.read_ = other.ptr_.read_;
-        ptr_.write_ = other.ptr_.write_;
+        ptr_.size_ = other.ptr_.size_;
         capacity_ = other.capacity_;
         e_ = other.e_;
         other.e_ = NULL;
@@ -314,7 +311,7 @@ protected:
 
     void clone_from(const ring_buffer_queue& other) {
         ptr_.read_ = other.ptr_.read_;
-        ptr_.write_ = other.ptr_.write_;
+        ptr_.size_ = other.ptr_.size_;
         capacity_ = other.capacity_;
         e_ = ptr_.allocate(capacity_);
         for (size_t i = 0; i < size(); ++i) {
@@ -332,9 +329,13 @@ protected:
     }
 
     void require_nonempty() const {
-        if (ptr_.read_ == ptr_.write_) {
+        if (empty()) {
             throw std::out_of_range("empty queue");
         }
+    }
+
+    uint32_t ptr_write(uint32_t offset = 0) const {
+        return index(ptr_.read_ + ptr_.size_ + offset);
     }
 
     T* e_;
@@ -346,7 +347,7 @@ protected:
         }
 
         uint32_t read_ = 0;
-        uint32_t write_ = 0;
+        uint32_t size_ = 0;
     } ptr_;
 };
 
