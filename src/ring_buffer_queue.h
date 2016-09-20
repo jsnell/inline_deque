@@ -26,7 +26,6 @@ public:
                 capacity_ *= 2;
             }
             e_.e_ = ptr_.allocate(capacity_);
-        } else {
         }
     }
 
@@ -332,6 +331,7 @@ protected:
             e_.inline_e_ = std::move(other.e_.inline_e_);
         }
         other.e_ = NULL;
+        other.capacity_ = 0;
     }
 
     void clone_from(const ring_buffer_queue& other) {
@@ -347,11 +347,12 @@ protected:
     }
 
     void reset() {
-        // e_ will be NULL if this object has been the source of a move.
-        // (It'll be true even if it was an inline element).
-        if (e_.e_ != NULL) {
+        // capacity_ will be 0 iff this was the source of a move
+        if (capacity_ != 0) {
             clear();
-            ptr_.deallocate(e_.e_, capacity_);
+            if (capacity_ > 1) {
+                ptr_.deallocate(e_.e_, capacity_);
+            }
         }
     }
 
@@ -371,7 +372,7 @@ protected:
 
     T& slot(uint32_t index) {
         if (capacity_ == 1) {
-            return e_.inline_e_;
+            return (T&) e_.inline_e_;
         } else {
             uint32_t actual_index = index & (capacity_ - 1);
             return e_.e_[actual_index];
@@ -380,7 +381,7 @@ protected:
 
     const T& slot(uint32_t index) const {
         if (capacity_ == 1) {
-            return e_.inline_e_;
+            return (const T&) e_.inline_e_;
         } else {
             uint32_t actual_index = index & (capacity_ - 1);
             return e_.e_[actual_index];
@@ -390,7 +391,7 @@ protected:
     union {
         T* e_;
         // XXX don't allocate this if if sizeof(T) > sizeof(void*).
-        T inline_e_;
+        uint8_t inline_e_[sizeof(T)];
     } e_;
     uint32_t capacity_;
 
