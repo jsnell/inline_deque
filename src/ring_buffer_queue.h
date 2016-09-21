@@ -13,6 +13,7 @@
 template<typename T,
          size_t InitialCapacity = 1,
          size_t MinimumCapacity = 8,
+         typename CapacityType = uint32_t,
          class Allocator = std::allocator<T>>
 class ring_buffer_queue {
 public:
@@ -119,7 +120,7 @@ public:
     }
 
     size_t max_capacity() const {
-        return std::numeric_limits<uint32_t>::max();
+        return std::numeric_limits<CapacityType>::max() >> 1;
     }
 
     void clear() {
@@ -130,11 +131,13 @@ public:
 
     void shrink_to_fit() {
         size_t new_capacity = capacity_;
-        while (new_capacity > size() * 2) {
+        while (new_capacity >= size() * 2 &&
+               new_capacity >= MinimumCapacity * 2) {
             new_capacity /= 2;
         }
-        // XXX oops, not doing anything with new_capacity...
-        // XXX enforce MinimumCapacity
+        if (new_capacity < capacity_) {
+            resize(new_capacity);
+        }
     }
 
     // Copying / assignment
@@ -296,7 +299,7 @@ protected:
     }
 
     void shrink() {
-        if (ptr_read() == 0 && capacity_ > size() * 2) {
+        if (ptr_read() == 0 && capacity_ >= size() * 2) {
             shrink_to_fit();
         }
     }
@@ -362,28 +365,28 @@ protected:
         }
     }
 
-    uint32_t ptr_read(uint32_t offset = 0) const {
+    CapacityType ptr_read(CapacityType offset = 0) const {
         return (ptr_.read_ + offset);
     }
 
-    uint32_t ptr_write(uint32_t offset = 0) const {
+    CapacityType ptr_write(CapacityType offset = 0) const {
         return (ptr_.write_ + offset);
     }
 
-    T& slot(uint32_t index) {
+    T& slot(CapacityType index) {
         if (capacity_ == 1) {
             return (T&) e_.inline_e_;
         } else {
-            uint32_t actual_index = index & (capacity_ - 1);
+            CapacityType actual_index = index & (capacity_ - 1);
             return e_.e_[actual_index];
         }
     }
 
-    const T& slot(uint32_t index) const {
+    const T& slot(CapacityType index) const {
         if (capacity_ == 1) {
             return (const T&) e_.inline_e_;
         } else {
-            uint32_t actual_index = index & (capacity_ - 1);
+            CapacityType actual_index = index & (capacity_ - 1);
             return e_.e_[actual_index];
         }
     }
@@ -393,15 +396,15 @@ protected:
         // XXX don't allocate this if if sizeof(T) > sizeof(void*).
         uint8_t inline_e_[sizeof(T)];
     } e_;
-    uint32_t capacity_;
+    CapacityType capacity_;
 
     // A dummy struct just used for empty base class optimization.
     struct ptrs : Allocator {
         ptrs(const Allocator& alloc) : Allocator(alloc) {
         }
 
-        uint32_t read_ = 0;
-        uint32_t write_ = 0;
+        CapacityType read_ = 0;
+        CapacityType write_ = 0;
     } ptr_;
 };
 
