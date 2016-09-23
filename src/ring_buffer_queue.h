@@ -23,7 +23,8 @@ public:
           ptr_(alloc) {
         capacity_ = 1;
         if (initial_capacity > 1) {
-            while (capacity_ < initial_capacity) {
+            while (capacity_ < initial_capacity ||
+                   capacity_ < MinimumCapacity) {
                 capacity_ *= 2;
             }
             e_.e_ = ptr_.allocate(capacity_);
@@ -331,9 +332,10 @@ protected:
         if (capacity_ > 1) {
             e_.e_ = other.e_.e_;
         } else {
-            e_.inline_e_ = std::move(other.e_.inline_e_);
+            ptr_.construct((T*) &e_.inline_e_,
+                           std::move((T&) other.e_.inline_e_));
         }
-        other.e_ = NULL;
+        other.e_.e_ = NULL;
         other.capacity_ = 0;
     }
 
