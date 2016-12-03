@@ -11,8 +11,9 @@
 #include <limits>
 
 template<typename T,
-         size_t InitialCapacity = 1,
-         size_t MinimumCapacity = 8,
+         size_t InlineCapacity = 1,
+         size_t InitialCapacity = InlineCapacity,
+         size_t MinimumCapacity = InlineCapacity,
          typename CapacityType = uint32_t,
          class Allocator = std::allocator<T>>
 class ring_buffer_queue {
@@ -22,12 +23,14 @@ public:
         : capacity_(initial_capacity),
           ptr_(alloc) {
         capacity_ = 1;
-        if (initial_capacity > 1) {
+        if (initial_capacity > InlineCapacity) {
             while (capacity_ < initial_capacity ||
                    capacity_ < MinimumCapacity) {
                 capacity_ *= 2;
             }
             e_.e_ = ptr_.allocate(capacity_);
+        } else {
+            capacity_ = InlineCapacity;
         }
     }
 
@@ -305,6 +308,10 @@ protected:
         }
     }
 
+    bool use_inline() const {
+        return capacity_ == InlineCapacity;
+    }
+
     void resize(size_t new_capacity) {
         new_capacity = std::max(new_capacity, MinimumCapacity);
         if (new_capacity == capacity_) {
@@ -316,7 +323,7 @@ protected:
             ptr_.construct(&new_e[i],
                            std::move(slot(ptr_read(i))));
         }
-        if (capacity_ > 1) {
+        if (!use_inline()) {
             ptr_.deallocate(e_.e_, capacity_);
         }
         e_.e_ = new_e;
@@ -329,11 +336,11 @@ protected:
         /// XXX move
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
-        if (capacity_ > 1) {
-            e_.e_ = other.e_.e_;
-        } else {
+        if (use_inline()) {
             ptr_.construct((T*) &e_.inline_e_,
                            std::move((T&) other.e_.inline_e_));
+        } else {
+            e_.e_ = other.e_.e_;
         }
         other.e_.e_ = NULL;
         other.capacity_ = 0;
@@ -342,7 +349,7 @@ protected:
     void clone_from(const ring_buffer_queue& other) {
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
-        if (capacity_ > 1) {
+        if (!use_inline()) {
             e_.e_ = ptr_.allocate(capacity_);
         }
         for (size_t i = 0; i < size(); ++i) {
@@ -355,7 +362,7 @@ protected:
         // capacity_ will be 0 iff this was the source of a move
         if (capacity_ != 0) {
             clear();
-            if (capacity_ > 1) {
+            if (!use_inline()) {
                 ptr_.deallocate(e_.e_, capacity_);
             }
         }
@@ -376,17 +383,18 @@ protected:
     }
 
     T& slot(CapacityType index) {
-        if (capacity_ == 1) {
-            return (T&) e_.inline_e_;
+        CapacityType actual_index = index & (capacity_ - 1);
+        if (use_inline()) {
+            return *(((T*) e_.inline_e_) + actual_index);
         } else {
-            CapacityType actual_index = index & (capacity_ - 1);
             return e_.e_[actual_index];
         }
     }
 
     const T& slot(CapacityType index) const {
-        if (capacity_ == 1) {
-            return (const T&) e_.inline_e_;
+        CapacityType actual_index = index & (capacity_ - 1);
+        if (use_inline()) {
+            return *(((T*) e_.inline_e_) + actual_index);
         } else {
             CapacityType actual_index = index & (capacity_ - 1);
             return e_.e_[actual_index];
@@ -395,8 +403,7 @@ protected:
 
     union {
         T* e_;
-        // XXX don't allocate this if if sizeof(T) > sizeof(void*).
-        uint8_t inline_e_[sizeof(T)];
+        uint8_t inline_e_[sizeof(T) * InlineCapacity];
     } e_;
     CapacityType capacity_;
 
