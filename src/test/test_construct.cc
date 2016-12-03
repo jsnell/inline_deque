@@ -15,7 +15,7 @@ bool test_constructor_default_settings() {
     q.push_back(1);
     EXPECT_INTEQ(q.capacity(), 1);
     q.push_back(2);
-    EXPECT_INTEQ(q.capacity(), 8);
+    EXPECT_INTEQ(q.capacity(), 2);
 
     return true;
 }
@@ -136,18 +136,9 @@ bool test_initial_capacity() {
         EXPECT_INTEQ(q.capacity(), 16);
     }
 
-    // Initial capacity should not be below minimum capacity (except for
-    // special case of inline allocation.
-    {
-        ring_buffer_queue<uint32_t, 1, 1, 32> q(11);
-        EXPECT_INTEQ(q.capacity(), 32);
-
-        ring_buffer_queue<uint32_t, 1, 1, 32> q2(1);
-        EXPECT_INTEQ(q2.capacity(), 1);
-
-        ring_buffer_queue<uint32_t, 16, 16, 32> q3(11);
-        EXPECT_INTEQ(q3.capacity(), 16);
-    }
+    // Initial capacity should not be below inline capacity.
+    ring_buffer_queue<uint32_t, 32> q(11);
+    EXPECT_INTEQ(q.capacity(), 32);
 
     return true;
 }

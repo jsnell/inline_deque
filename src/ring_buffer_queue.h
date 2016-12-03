@@ -13,7 +13,6 @@
 template<typename T,
          size_t InlineCapacity = 1,
          size_t InitialCapacity = InlineCapacity,
-         size_t MinimumCapacity = InlineCapacity,
          typename CapacityType = uint32_t,
          class Allocator = std::allocator<T>>
 class ring_buffer_queue {
@@ -22,10 +21,9 @@ public:
                       const Allocator& alloc = Allocator())
         : capacity_(initial_capacity),
           ptr_(alloc) {
-        capacity_ = 1;
         if (initial_capacity > InlineCapacity) {
-            while (capacity_ < initial_capacity ||
-                   capacity_ < MinimumCapacity) {
+            capacity_ = 1;
+            while (capacity_ < initial_capacity) {
                 capacity_ *= 2;
             }
             e_.e_ = ptr_.allocate(capacity_);
@@ -135,8 +133,7 @@ public:
 
     void shrink_to_fit() {
         size_t new_capacity = capacity_;
-        while (new_capacity >= size() * 2 &&
-               new_capacity >= MinimumCapacity * 2) {
+        while (new_capacity >= size() * 2) {
             new_capacity /= 2;
         }
         if (new_capacity < capacity_) {
@@ -176,6 +173,8 @@ public:
 
         return *this;
     }
+
+    // TODO: swap? assign?
 
     // Iterators
 
@@ -289,13 +288,15 @@ public:
         return const_iterator(this, size());
     }
 
+    // Misc
+
+    Allocator get_allocator() const {
+        return ptr_;
+    }
+
 protected:
     bool full() {
-        if (capacity_ == 1) {
-            return ptr_.read_ != ptr_.write_;
-        } else {
-            return (ptr_.read_ + capacity_ - 1 == ptr_.write_);
-        }
+        return (ptr_.read_ + capacity_ - 1 == ptr_.write_);
     }
 
     void overflow() {
@@ -313,21 +314,41 @@ protected:
     }
 
     void resize(size_t new_capacity) {
-        new_capacity = std::max(new_capacity, MinimumCapacity);
+        new_capacity = std::max(new_capacity, InlineCapacity);
+
         if (new_capacity == capacity_) {
             return;
         }
-        T* new_e = ptr_.allocate(new_capacity);
+
+        T* old_e = (use_inline() ? (T*) &e_.inline_e_ : e_.e_);
+        T* new_e;
+
+        if (new_capacity == InlineCapacity) {
+            new_e = (T*) &e_.inline_e_;
+        } else {
+            new_e = ptr_.allocate(new_capacity);
+        }
+
         size_t current_size = size();
         for (int i = 0; i < current_size; ++i) {
+            // Note: we have to use slot_impl() with a precomputed array
+            // pointer instead of slot() here. The reason is that if the
+            // new array is inline-allocated, writes to it will clobber
+            // clobber e_.e_.
             ptr_.construct(&new_e[i],
-                           std::move(slot(ptr_read(i))));
+                           std::move(slot_impl(ptr_read(i), old_e)));
         }
+
         if (!use_inline()) {
-            ptr_.deallocate(e_.e_, capacity_);
+            ptr_.deallocate(old_e, capacity_);
         }
-        e_.e_ = new_e;
+
         capacity_ = new_capacity;
+
+        if (!use_inline()) {
+            e_.e_ = new_e;
+        }
+
         ptr_.read_ = 0;
         ptr_.write_ = current_size;
     }
@@ -383,22 +404,29 @@ protected:
     }
 
     T& slot(CapacityType index) {
-        CapacityType actual_index = index & (capacity_ - 1);
         if (use_inline()) {
-            return *(((T*) e_.inline_e_) + actual_index);
+            return slot_impl(index, (T*) e_.inline_e_);
         } else {
-            return e_.e_[actual_index];
+            return slot_impl(index, e_.e_);
         }
     }
 
     const T& slot(CapacityType index) const {
-        CapacityType actual_index = index & (capacity_ - 1);
         if (use_inline()) {
-            return *(((T*) e_.inline_e_) + actual_index);
+            return slot_impl(index, (T*) e_.inline_e_);
         } else {
-            CapacityType actual_index = index & (capacity_ - 1);
-            return e_.e_[actual_index];
+            return slot_impl(index, e_.e_);
         }
+    }
+
+    T& slot_impl(CapacityType index, T* array) {
+        CapacityType actual_index = index & (capacity_ - 1);
+        return array[actual_index];
+    }
+
+    const T& slot_impl(CapacityType index, T* array) const {
+        CapacityType actual_index = index & (capacity_ - 1);
+        return array[actual_index];
     }
 
     union {
