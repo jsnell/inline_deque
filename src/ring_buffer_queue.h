@@ -133,7 +133,8 @@ public:
 
     void shrink_to_fit() {
         CapacityType new_capacity = capacity_;
-        while (new_capacity >= size() * 2) {
+        while (new_capacity &&
+               new_capacity >= size() * 2) {
             new_capacity /= 2;
         }
         if (new_capacity < capacity_) {
