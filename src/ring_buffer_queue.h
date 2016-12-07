@@ -36,7 +36,15 @@ public:
         reset();
     }
 
-    // Adding new elements at back of queue.
+    // Adding new elements at front / back of queue.
+
+    void push_front(const T& e) {
+        if (full()) {
+            overflow();
+        }
+        ptr_.read_--;
+        ptr_.construct(&slot(ptr_read()), e);
+    }
 
     void push_back(const T& e) {
         if (full()) {
@@ -44,6 +52,16 @@ public:
         }
         ptr_.construct(&slot(ptr_write()), e);
         ptr_.write_++;
+    }
+
+    template<typename... Args>
+    void emplace_front(Args&&... args) {
+        if (full()) {
+            overflow();
+        }
+        ptr_.read_--;
+        ptr_.construct(&slot(ptr_read()),
+                       std::forward<Args>(args)...);
     }
 
     template<typename... Args>
