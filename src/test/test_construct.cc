@@ -3,12 +3,12 @@
 // Copyright 2016 Juho Snellman, released under a MIT license (see
 // LICENSE).
 
-#include "../ring_buffer_queue.h"
+#include "../inline_deque.h"
 
 #include "util_test.h"
 
 bool test_constructor_default_settings() {
-    ring_buffer_queue<uint32_t> q;
+    inline_deque<uint32_t> q;
 
     EXPECT_INTEQ(q.size(), 0);
     EXPECT_INTEQ(q.capacity(), 1);
@@ -33,7 +33,7 @@ void reset_counters() {
 }
 
 struct CopyCounter {
-    // Make sure ring_buffer_queue doesn't require a default constructor.
+    // Make sure inline_deque doesn't require a default constructor.
     CopyCounter() = delete;
 
     explicit CopyCounter(int n) : n_(n) {
@@ -55,7 +55,7 @@ struct CopyCounter {
 bool test_copy_constructor() {
     reset_counters();
 
-    ring_buffer_queue<CopyCounter> q1;
+    inline_deque<CopyCounter> q1;
 
     q1.push_back(CopyCounter(3));
     EXPECT_INTEQ(normal_constructor_count, 1);
@@ -63,7 +63,7 @@ bool test_copy_constructor() {
     EXPECT_INTEQ(move_constructor_count, 0);
     EXPECT_INTEQ(destructor_count, 1);
 
-    ring_buffer_queue<CopyCounter> q2(q1);
+    inline_deque<CopyCounter> q2(q1);
     EXPECT_INTEQ(normal_constructor_count, 1);
     EXPECT_INTEQ(copy_constructor_count, 2);
     EXPECT_INTEQ(move_constructor_count, 0);
@@ -78,7 +78,7 @@ bool test_move_constructor() {
     reset_counters();
 
     {
-        ring_buffer_queue<CopyCounter> q1;
+        inline_deque<CopyCounter> q1;
 
         q1.emplace_back(3);
         EXPECT_INTEQ(normal_constructor_count, 1);
@@ -87,7 +87,7 @@ bool test_move_constructor() {
         EXPECT_INTEQ(destructor_count, 0);
         CopyCounter* p1 = &q1.front();
 
-        ring_buffer_queue<CopyCounter> q2(std::move(q1));
+        inline_deque<CopyCounter> q2(std::move(q1));
         EXPECT_INTEQ(normal_constructor_count, 1);
         EXPECT_INTEQ(copy_constructor_count, 0);
         // Just one element, so allocated inline. Call the move constructor.
@@ -105,7 +105,7 @@ bool test_move_constructor() {
         EXPECT_INTEQ(destructor_count, 0);
         CopyCounter* p2 = &q2.front();
 
-        ring_buffer_queue<CopyCounter> q3(std::move(q2));
+        inline_deque<CopyCounter> q3(std::move(q2));
         // The internal array was moved as a unit. Nothing copied,
         // pointer equality to original array.
         EXPECT_INTEQ(normal_constructor_count, 2);
@@ -119,9 +119,9 @@ bool test_move_constructor() {
 
         // Assignment must still be valid for objects that have been
         // moved from.
-        q1 = ring_buffer_queue<CopyCounter>(16);
+        q1 = inline_deque<CopyCounter>(16);
         EXPECT_INTEQ(q1.capacity(), 16);
-        q2 = ring_buffer_queue<CopyCounter>(16);
+        q2 = inline_deque<CopyCounter>(16);
         EXPECT_INTEQ(q2.capacity(), 16);
     }
     EXPECT_INTEQ(destructor_count, 2);
@@ -132,12 +132,12 @@ bool test_move_constructor() {
 bool test_initial_capacity() {
     // Round initial capacity to power of 2.
     {
-        ring_buffer_queue<uint32_t> q(11);
+        inline_deque<uint32_t> q(11);
         EXPECT_INTEQ(q.capacity(), 16);
     }
 
     // Initial capacity should not be below inline capacity.
-    ring_buffer_queue<uint32_t, 32> q(11);
+    inline_deque<uint32_t, 32> q(11);
     EXPECT_INTEQ(q.capacity(), 32);
 
     return true;

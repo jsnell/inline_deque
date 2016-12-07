@@ -3,8 +3,8 @@
 // Copyright 2016 Juho Snellman, released under a MIT license (see
 // LICENSE).
 
-#ifndef RING_BUFFER_QUEUE_H
-#define RING_BUFFER_QUEUE_H
+#ifndef INLINE_DEQUE_H
+#define INLINE_DEQUE_H
 
 #include <stdexcept>
 #include <cstddef>
@@ -15,9 +15,9 @@ template<typename T,
          size_t InitialCapacity = InlineCapacity,
          typename CapacityType = uint32_t,
          class Allocator = std::allocator<T>>
-class ring_buffer_queue {
+class inline_deque {
 public:
-    ring_buffer_queue(size_t initial_capacity = InitialCapacity,
+    inline_deque(size_t initial_capacity = InitialCapacity,
                       const Allocator& alloc = Allocator())
         : capacity_(initial_capacity),
           ptr_(alloc) {
@@ -32,7 +32,7 @@ public:
         }
     }
 
-    ~ring_buffer_queue() {
+    ~inline_deque() {
         reset();
     }
 
@@ -162,17 +162,17 @@ public:
 
     // Copying / assignment
 
-    ring_buffer_queue(const ring_buffer_queue& other)
+    inline_deque(const inline_deque& other)
         : ptr_(other.ptr_) {
         clone_from(other);
     }
 
-    ring_buffer_queue(ring_buffer_queue&& other)
+    inline_deque(inline_deque&& other)
         : ptr_(other.ptr_) {
         move_from(other);
     }
 
-    ring_buffer_queue& operator=(const ring_buffer_queue& other) {
+    inline_deque& operator=(const inline_deque& other) {
         if (&other == this) {
             return *this;
         }
@@ -182,7 +182,7 @@ public:
         return *this;
     }
 
-    ring_buffer_queue& operator=(ring_buffer_queue&& other) {
+    inline_deque& operator=(inline_deque&& other) {
         if (&other == this) {
             return *this;
         }
@@ -288,8 +288,8 @@ public:
         ptrdiff_t i_;
     };
 
-    typedef iterator_base<ring_buffer_queue, T> iterator;
-    typedef iterator_base<const ring_buffer_queue, const T> const_iterator;
+    typedef iterator_base<inline_deque, T> iterator;
+    typedef iterator_base<const inline_deque, const T> const_iterator;
 
     iterator begin() {
         return iterator(this, 0);
@@ -373,7 +373,7 @@ protected:
         ptr_.write_ = current_size;
     }
 
-    void move_from(ring_buffer_queue& other) {
+    void move_from(inline_deque& other) {
         /// XXX move
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
@@ -387,7 +387,7 @@ protected:
         other.capacity_ = 0;
     }
 
-    void clone_from(const ring_buffer_queue& other) {
+    void clone_from(const inline_deque& other) {
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
         if (!use_inline()) {
@@ -465,4 +465,4 @@ protected:
     } ptr_;
 };
 
-#endif // RING_BUFFER_QUEUE_H
+#endif // INLINE_DEQUE_H
