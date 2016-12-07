@@ -143,6 +143,16 @@ bool test_initial_capacity() {
     return true;
 }
 
+bool test_no_inline() {
+    inline_deque<std::string, 0, 0, uint16_t> q;
+    EXPECT_INTEQ(q.size(), 0);
+    q.push_front(std::string("a"));
+    EXPECT_INTEQ(q.size(), 1);
+    EXPECT(q.front() == "a");
+
+    return true;
+}
+
 int main(void) {
     bool ok = true;
 
@@ -150,6 +160,7 @@ int main(void) {
     TEST(test_copy_constructor);
     TEST(test_move_constructor);
     TEST(test_initial_capacity);
+    TEST(test_no_inline);
 
     return !ok;
 }

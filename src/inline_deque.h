@@ -319,7 +319,8 @@ protected:
     }
 
     void overflow() {
-        resize(capacity_ * 2);
+        CapacityType new_capacity = capacity_ * 2;
+        resize(new_capacity ? new_capacity : 1);
     }
 
     void shrink() {
@@ -378,8 +379,12 @@ protected:
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
         if (use_inline()) {
-            ptr_.construct((T*) &e_.inline_e_,
-                           std::move((T&) other.e_.inline_e_));
+            T* new_e = (T*) &e_.inline_e_;
+            T* old_e = (T*) &other.e_.inline_e_;
+            for (int i = 0; i < capacity_; ++i) {
+                ptr_.construct(new_e + i,
+                               std::move(*(old_e + i)));
+            }
         } else {
             e_.e_ = other.e_.e_;
         }

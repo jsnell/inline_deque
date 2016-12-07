@@ -23,3 +23,4 @@ macro(define_test name)
 endmacro()
 
 define_test(test_construct)
+define_test(test_move)
