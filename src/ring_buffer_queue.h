@@ -113,15 +113,15 @@ public:
         return size() == 0;
     }
 
-    size_t size() const {
+    CapacityType size() const {
         return ptr_.write_ - ptr_.read_;
     }
 
-    size_t capacity() const {
+    CapacityType capacity() const {
         return capacity_;
     }
 
-    size_t max_capacity() const {
+    CapacityType max_capacity() const {
         return std::numeric_limits<CapacityType>::max() >> 1;
     }
 
@@ -132,7 +132,7 @@ public:
     }
 
     void shrink_to_fit() {
-        size_t new_capacity = capacity_;
+        CapacityType new_capacity = capacity_;
         while (new_capacity >= size() * 2) {
             new_capacity /= 2;
         }
@@ -296,7 +296,7 @@ public:
 
 protected:
     bool full() {
-        return (ptr_.read_ + capacity_ - 1 == ptr_.write_);
+        return size() == capacity();
     }
 
     void overflow() {
@@ -313,8 +313,9 @@ protected:
         return capacity_ == InlineCapacity;
     }
 
-    void resize(size_t new_capacity) {
-        new_capacity = std::max(new_capacity, InlineCapacity);
+    void resize(CapacityType new_capacity) {
+        new_capacity = std::max(new_capacity,
+                                static_cast<CapacityType>(InlineCapacity));
 
         if (new_capacity == capacity_) {
             return;
