@@ -375,15 +375,12 @@ protected:
     }
 
     void move_from(inline_deque& other) {
-        /// XXX move
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
         if (use_inline()) {
-            T* new_e = (T*) &e_.inline_e_;
-            T* old_e = (T*) &other.e_.inline_e_;
-            for (int i = 0; i < capacity_; ++i) {
-                ptr_.construct(new_e + i,
-                               std::move(*(old_e + i)));
+            for (int i = 0; i < size(); ++i) {
+                ptr_.construct(&slot(ptr_read(i)),
+                               std::move(other.slot(ptr_read(i))));
             }
         } else {
             e_.e_ = other.e_.e_;
@@ -463,6 +460,19 @@ protected:
     // A dummy struct just used for empty base class optimization.
     struct ptrs : Allocator {
         ptrs(const Allocator& alloc) : Allocator(alloc) {
+        }
+
+        ptrs(const struct ptrs& other)
+            : Allocator(other),
+              read_(other.read_),
+              write_(other.write_) {
+        }
+
+        struct ptrs operator=(const struct ptrs& other) {
+            Allocator::operator=(other);
+            read_ = other.read_;
+            write_ = other.write_;
+            return *this;
         }
 
         CapacityType read_ = 0;
