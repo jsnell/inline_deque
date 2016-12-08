@@ -92,7 +92,8 @@ bool test_move_constructor() {
         EXPECT_INTEQ(copy_constructor_count, 0);
         // Just one element, so allocated inline. Call the move constructor.
         EXPECT_INTEQ(move_constructor_count, 1);
-        EXPECT_INTEQ(destructor_count, 0);
+        // +1 for destroying the moved inline object.
+        EXPECT_INTEQ(destructor_count, 1);
         EXPECT(&q2.front() != p1);
 
         // Add a second element.
@@ -100,9 +101,10 @@ bool test_move_constructor() {
         // +1 for constructing "4"
         EXPECT_INTEQ(normal_constructor_count, 2);
         EXPECT_INTEQ(copy_constructor_count, 0);
-        // +1 for moving "3" from inline to the vector
+        // +1 for moving "3" from inline to the vector.
         EXPECT_INTEQ(move_constructor_count, 2);
-        EXPECT_INTEQ(destructor_count, 0);
+        // +1 for destroying the moved inline object.
+        EXPECT_INTEQ(destructor_count, 2);
         CopyCounter* p2 = &q2.front();
 
         inline_deque<CopyCounter> q3(std::move(q2));
@@ -111,7 +113,7 @@ bool test_move_constructor() {
         EXPECT_INTEQ(normal_constructor_count, 2);
         EXPECT_INTEQ(copy_constructor_count, 0);
         EXPECT_INTEQ(move_constructor_count, 2);
-        EXPECT_INTEQ(destructor_count, 0);
+        EXPECT_INTEQ(destructor_count, 2);
         EXPECT(&q3.front() == p2);
         // Not a guarantee of the API, but a good indication of q2 having
         // been invalidated properly.
@@ -124,7 +126,7 @@ bool test_move_constructor() {
         q2 = inline_deque<CopyCounter>(16);
         EXPECT_INTEQ(q2.capacity(), 16);
     }
-    EXPECT_INTEQ(destructor_count, 2);
+    EXPECT_INTEQ(destructor_count, 4);
 
     return true;
 }

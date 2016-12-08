@@ -350,7 +350,7 @@ protected:
             new_e = ptr_.allocate(new_capacity);
         }
 
-        size_t current_size = size();
+        CapacityType current_size = size();
         for (int i = 0; i < current_size; ++i) {
             // Note: we have to use slot_impl() with a precomputed array
             // pointer instead of slot() here. The reason is that if the
@@ -358,6 +358,7 @@ protected:
             // clobber e_.e_.
             ptr_.construct(&new_e[i],
                            std::move(slot_impl(ptr_read(i), old_e)));
+            ptr_.destroy(&slot_impl(ptr_read(i), old_e));
         }
 
         if (!use_inline()) {
@@ -381,6 +382,7 @@ protected:
             for (int i = 0; i < size(); ++i) {
                 ptr_.construct(&slot(ptr_read(i)),
                                std::move(other.slot(ptr_read(i))));
+                ptr_.destroy(&other.slot(ptr_read(i)));
             }
         } else {
             e_.e_ = other.e_.e_;
