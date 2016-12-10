@@ -135,12 +135,12 @@ public:
         return ptr_.write_ - ptr_.read_;
     }
 
-    CapacityType capacity() const {
-        return capacity_;
+    CapacityType max_size() const {
+        return std::numeric_limits<CapacityType>::max() >> 1;
     }
 
-    CapacityType max_capacity() const {
-        return std::numeric_limits<CapacityType>::max() >> 1;
+    CapacityType capacity() const {
+        return capacity_;
     }
 
     void clear() {
