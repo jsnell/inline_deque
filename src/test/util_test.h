@@ -37,4 +37,63 @@
         }                                               \
     } while (0)
 
+#define EXPECT_STREQ(actual, expect)                    \
+    do {                                                \
+        if (expect != actual)  {                        \
+            printf("%s:%d: Expect failed, wanted '%s'"  \
+                   " got '%s'\n",                       \
+                   __FILE__, __LINE__,                  \
+                   std::string(expect).c_str(),         \
+                   std::string(actual).c_str());        \
+            return false;                               \
+        }                                               \
+    } while (0)
+
+// A class with some move semantics
+class Value {
+public:
+    explicit Value(uint32_t val) : val_(val) {
+        ++live_;
+    }
+
+    Value(const Value& other) : Value(other.val_) {
+    }
+
+    Value(Value&& other) : Value(other.val_) {
+        other.val_ = 0x88888888;
+    }
+
+    ~Value() {
+        val_ = 0xffffffff;
+        --live_;
+    }
+
+    Value& operator=(const Value& other) {
+        val_ = other.val_;
+        return *this;
+    }
+
+    Value& operator=(Value&& other) {
+        val_ = other.val_;
+        other.val_ = 0x88888888;
+        return *this;
+    }
+
+    uint32_t value() {
+        return val_;
+    }
+
+    operator uint32_t() const {
+        return val_;
+    }
+
+
+    static uint64_t live_;
+
+private:
+    uint32_t val_;
+};
+
+uint64_t Value::live_ = 0;
+
 #endif // UTIL_TEST_H

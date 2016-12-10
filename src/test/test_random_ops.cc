@@ -9,51 +9,11 @@
 #include <vector>
 
 #include "../inline_deque.h"
+#include "util_test.h"
 
 static std::uniform_int_distribution<uint64_t> rand_uint64 {
     0, std::numeric_limits<uint64_t>::max()
 };
-
-class Value {
-public:
-    explicit Value(uint32_t val) : val_(val) {
-        ++live_;
-    }
-
-    Value(const Value& other) : Value(other.val_) {
-    }
-
-    Value(Value&& other) : Value(other.val_) {
-        other.val_ = 0x88888888;
-    }
-
-    ~Value() {
-        val_ = 0xffffffff;
-        --live_;
-    }
-
-    Value& operator=(const Value& other) {
-        val_ = other.val_;
-        return *this;
-    }
-
-    Value& operator=(Value&& other) {
-        val_ = other.val_;
-        other.val_ = 0x88888888;
-        return *this;
-    }
-
-    uint32_t value() {
-        return val_;
-    }
-
-    static uint64_t live_;
-
-private:
-    uint32_t val_;
-};
-
-uint64_t Value::live_ = 0;
 
 template<class Q>
 struct Worker {
@@ -133,6 +93,17 @@ struct Worker {
             queue_ = other_queue_;
             other_queue_ = std::move(tmp);
             break;
+        }
+        case 7: {
+            if (queue_.size() > 0) {
+                int start = rand_uint64(*rand) % queue_.size();
+                int end = rand_uint64(*rand) % queue_.size();
+                if (end < start) {
+                    std::swap(start, end);
+                }
+                queue_.erase(queue_.begin() + start,
+                             queue_.begin() + end);
+            }
         }
         default:
             break;

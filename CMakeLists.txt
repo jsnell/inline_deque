@@ -24,3 +24,5 @@ endmacro()
 
 define_test(test_construct)
 define_test(test_move)
+define_test(test_erase)
+define_test(test_random_ops)

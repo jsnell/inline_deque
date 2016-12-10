@@ -101,7 +101,7 @@ public:
     }
 
     const T& operator[] (size_t i) const {
-        return slow(ptr_read(i));
+        return slot(ptr_read(i));
     }
 
     T& at(size_t i) {
@@ -284,6 +284,8 @@ public:
         }
 
     private:
+        friend inline_deque;
+
         RB* q_;
         ptrdiff_t i_;
     };
@@ -305,6 +307,30 @@ public:
 
     const_iterator end() const {
         return const_iterator(this, size());
+    }
+
+    // Modifications at arbitrary locations, using iterators
+
+    iterator erase(iterator first, iterator last) {
+        CapacityType count = last.i_ - first.i_;
+        if (!count) {
+            return first;
+        }
+
+        // First destroy the elements being erased
+        for (CapacityType i = first.i_; i < last.i_; ++i) {
+            ptr_.destroy(&slot(ptr_read(i)));
+        }
+
+        // Then slide all the later elements forward to fill in the gap.
+        for (CapacityType i = ptr_.read_ + last.i_; i != ptr_.write_; ++i) {
+            slot(i - count) = std::move(slot(i));
+        }
+
+        // Then adjust the pointers.
+        ptr_.write_ -= count;
+
+        return first;
     }
 
     // Misc
@@ -351,7 +377,7 @@ protected:
         }
 
         CapacityType current_size = size();
-        for (int i = 0; i < current_size; ++i) {
+        for (CapacityType i = 0; i < current_size; ++i) {
             // Note: we have to use slot_impl() with a precomputed array
             // pointer instead of slot() here. The reason is that if the
             // new array is inline-allocated, writes to it will clobber
@@ -379,7 +405,7 @@ protected:
         ptr_ = other.ptr_;
         capacity_ = other.capacity_;
         if (use_inline()) {
-            for (int i = 0; i < size(); ++i) {
+            for (CapacityType i = 0; i < size(); ++i) {
                 ptr_.construct(&slot(ptr_read(i)),
                                std::move(other.slot(ptr_read(i))));
                 ptr_.destroy(&other.slot(ptr_read(i)));
