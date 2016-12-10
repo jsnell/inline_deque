@@ -69,11 +69,50 @@ bool test_erase_range() {
     // Erase two from the middle
     {
         inline_deque<Value, 8> q2(q);
-        q2.erase(q2.begin() + 1, q2.begin() + 3);
+        auto it = q2.erase(q2.begin() + 1, q2.begin() + 3);
         EXPECT_INTEQ(q2.size(), 2);
         EXPECT_INTEQ(q2[0], 4);
         EXPECT_INTEQ(q2[1], 7);
         EXPECT_STREQ(tostr(q2), "4 7 ");
+        // Also check here that we're returning the right iterator
+        EXPECT(it < q2.end());
+        EXPECT_INTEQ(*it, 7);
+    }
+
+    return true;
+}
+
+bool test_erase_single() {
+    inline_deque<Value, 8> q;
+    for (int i = 0; i < 4; ++i) {
+        q.push_back(Value(i * 2));
+        q.push_back(Value(i * 2 + 1));
+        q.pop_front();
+    }
+    EXPECT_INTEQ(q.size(), 4);
+    EXPECT_INTEQ(q[0], 4);
+    EXPECT_INTEQ(q[3], 7);
+    EXPECT_STREQ(tostr(q), "4 5 6 7 ");
+
+    // Erase single values using single iterator
+    {
+        inline_deque<Value, 8> q2(q);
+        q2.erase(q2.end() - 1);
+        EXPECT_STREQ(tostr(q2), "4 5 6 ");
+    }
+
+    {
+        inline_deque<Value, 8> q2(q);
+        q2.erase(q2.begin() + 1);
+        EXPECT_STREQ(tostr(q2), "4 6 7 ");
+    }
+
+    // Erase through a const_iterator
+    {
+        inline_deque<Value, 8> q2(q);
+        const inline_deque<Value, 8>& q3 = q2;
+        q2.erase(q3.begin() + 1);
+        EXPECT_STREQ(tostr(q2), "4 6 7 ");
     }
 
     return true;
@@ -83,6 +122,7 @@ int main(void) {
     bool ok = true;
 
     TEST(test_erase_range);
+    TEST(test_erase_single);
 
     return !ok;
 }

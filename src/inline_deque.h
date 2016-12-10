@@ -200,75 +200,74 @@ public:
     template<typename RB, typename VT>
     struct iterator_base {
         typedef std::random_access_iterator_tag iterator_category;
-        typedef iterator_base iterator;
 
         iterator_base(RB* q, size_t index)
             : q_(q), i_(index) {
         }
 
-        iterator_base(const iterator& other)
+        iterator_base(const iterator_base& other)
             : q_(other.q_),
               i_(other.i_) {
         }
 
-        bool operator==(const iterator& other) const {
+        bool operator==(const iterator_base& other) const {
             return q_ == other.q_ && i_ == other.i_;
         }
-        bool operator!=(const iterator& other) const {
+        bool operator!=(const iterator_base& other) const {
             return q_ != other.q_ || i_ != other.i_;
         }
 
-        iterator operator+(size_t i) const {
-            return iterator(q_, i_ + i);
+        iterator_base operator+(size_t i) const {
+            return iterator_base(q_, i_ + i);
         }
-        iterator& operator+=(size_t i) {
+        iterator_base& operator+=(size_t i) {
             i_ += i;
             return *this;
         }
-        iterator& operator++() {
+        iterator_base& operator++() {
             return *this += 1;
         }
-        iterator operator++(int) {
-            iterator ret = *this;
+        iterator_base operator++(int) {
+            iterator_base ret = *this;
             ++*this;
             return ret;
         }
 
-        iterator operator-(size_t i) const {
-            return iterator(q_, i_ - i);
+        iterator_base operator-(size_t i) const {
+            return iterator_base(q_, i_ - i);
         }
-        iterator& operator-=(size_t i) {
+        iterator_base& operator-=(size_t i) {
             i_ -= i;
             return *this;
         }
-        iterator& operator--() {
+        iterator_base& operator--() {
             return *this -= 1;
         }
-        iterator operator--(int) {
-            iterator ret = *this;
+        iterator_base operator--(int) {
+            iterator_base ret = *this;
             --*this;
             return ret;
         }
 
-        bool operator<(const iterator& other) const {
+        bool operator<(const iterator_base& other) const {
             if (q_ == other.q_) {
                 return i_ < other.i_;
             }
             return q_ < other.q_;
         }
-        bool operator>(const iterator& other) const {
+        bool operator>(const iterator_base& other) const {
             if (q_ == other.q_) {
                 return i_ > other.i_;
             }
             return q_ > other.q_;
         }
-        bool operator<=(const iterator& other) const {
+        bool operator<=(const iterator_base& other) const {
             if (q_ == other.q_) {
                 return i_ <= other.i_;
             }
             return q_ <= other.q_;
         }
-        bool operator>=(const iterator& other) const {
+        bool operator>=(const iterator_base& other) const {
             if (q_ == other.q_) {
                 return i_ >= other.i_;
             }
@@ -281,6 +280,10 @@ public:
 
         VT* operator->() {
             return &(*q_)[i_];
+        }
+
+        operator iterator_base<const inline_deque, const T> const() {
+            return iterator_base<const inline_deque, const T>(q_, i_);
         }
 
     private:
@@ -311,26 +314,30 @@ public:
 
     // Modifications at arbitrary locations, using iterators
 
-    iterator erase(iterator first, iterator last) {
+    iterator erase(const_iterator first, const_iterator last) {
         CapacityType count = last.i_ - first.i_;
-        if (!count) {
-            return first;
+        if (count) {
+            // First destroy the elements being erased
+            for (CapacityType i = first.i_; i < last.i_; ++i) {
+                ptr_.destroy(&slot(ptr_read(i)));
+            }
+
+            // Then slide all the later elements forward to fill in
+            // the gap.
+            for (CapacityType i = ptr_.read_ + last.i_;
+                 i != ptr_.write_; ++i) {
+                slot(i - count) = std::move(slot(i));
+            }
+
+            // Then adjust the pointers.
+            ptr_.write_ -= count;
         }
 
-        // First destroy the elements being erased
-        for (CapacityType i = first.i_; i < last.i_; ++i) {
-            ptr_.destroy(&slot(ptr_read(i)));
-        }
+        return iterator(this, first.i_);
+    }
 
-        // Then slide all the later elements forward to fill in the gap.
-        for (CapacityType i = ptr_.read_ + last.i_; i != ptr_.write_; ++i) {
-            slot(i - count) = std::move(slot(i));
-        }
-
-        // Then adjust the pointers.
-        ptr_.write_ -= count;
-
-        return first;
+    iterator erase(const_iterator pos) {
+        return erase(pos, pos + 1);
     }
 
     // Misc
