@@ -45,7 +45,8 @@ bool test_insert_start() {
 
     {
         inline_deque<Value, 8> q2 { q };
-        q2.insert(q2.begin(), std::move(Value(100)));
+        Value v { 100 };
+        q2.insert(q2.begin(), std::move(v));
         EXPECT_STREQ(tostr(q2), "100 4 5 6 7 ");
     }
 
