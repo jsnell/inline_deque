@@ -6,6 +6,8 @@
 #ifndef UTIL_TEST_H
 #define UTIL_TEST_H
 
+#include <cassert>
+
 #define TEST(fun) \
     do {                                              \
         if (fun()) {                                  \
@@ -65,15 +67,18 @@ public:
 
     ~Value() {
         val_ = 0xffffffff;
+        deleted_ = true;
         --live_;
     }
 
     Value& operator=(const Value& other) {
+        assert(!deleted_);
         val_ = other.val_;
         return *this;
     }
 
     Value& operator=(Value&& other) {
+        assert(!deleted_);
         val_ = other.val_;
         other.val_ = 0x88888888;
         return *this;
@@ -84,6 +89,7 @@ public:
     }
 
     operator uint32_t() const {
+        assert(!deleted_);
         return val_;
     }
 
@@ -92,6 +98,7 @@ public:
 
 private:
     uint32_t val_;
+    bool deleted_ = false;
 };
 
 uint64_t Value::live_ = 0;

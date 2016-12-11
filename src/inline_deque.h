@@ -317,20 +317,20 @@ public:
     iterator erase(const_iterator first, const_iterator last) {
         CapacityType count = last.i_ - first.i_;
         if (count) {
-            // First destroy the elements being erased
-            for (CapacityType i = first.i_; i < last.i_; ++i) {
-                ptr_.destroy(&slot(ptr_read(i)));
-            }
-
-            // Then slide all the later elements forward to fill in
-            // the gap.
+            // First slide all the elements after the deleted ones
+            // forward, so that the deleted elements get covered up.
             for (CapacityType i = ptr_.read_ + last.i_;
                  i != ptr_.write_; ++i) {
                 slot(i - count) = std::move(slot(i));
             }
-
             // Then adjust the pointers.
             ptr_.write_ -= count;
+
+            // Finally destroy anything that's beyond the write
+            // pointer
+            for (CapacityType i = 0; i < count; ++i) {
+                ptr_.destroy(&slot(ptr_write(i)));
+            }
         }
 
         return iterator(this, first.i_);
