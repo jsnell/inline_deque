@@ -467,9 +467,10 @@ protected:
             }
         } else {
             e_.e_ = other.e_.e_;
+            other.e_.e_ = NULL;
         }
-        other.e_.e_ = NULL;
-        other.capacity_ = 0;
+        other.capacity_ = InlineCapacity;
+        other.ptr_.read_ = other.ptr_.write_;
     }
 
     void clone_from(const inline_deque& other) {
@@ -485,12 +486,9 @@ protected:
     }
 
     void reset() {
-        // capacity_ will be 0 iff this was the source of a move
-        if (capacity_ != 0) {
-            clear();
-            if (!use_inline()) {
-                ptr_.deallocate(e_.e_, capacity_);
-            }
+        clear();
+        if (!use_inline()) {
+            ptr_.deallocate(e_.e_, capacity_);
         }
     }
 

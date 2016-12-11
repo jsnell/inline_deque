@@ -115,9 +115,10 @@ bool test_move_constructor() {
         EXPECT_INTEQ(move_constructor_count, 2);
         EXPECT_INTEQ(destructor_count, 2);
         EXPECT(&q3.front() == p2);
-        // Not a guarantee of the API, but a good indication of q2 having
-        // been invalidated properly.
-        EXPECT_INTEQ(q2.capacity(), 0);
+        // Neither of the following is a guarantee of the API, but they
+        // are good indications of q2 having been invalidated properly.
+        EXPECT_INTEQ(q2.capacity(), 1);
+        EXPECT_INTEQ(q2.size(), 0);
 
         // Assignment must still be valid for objects that have been
         // moved from.
