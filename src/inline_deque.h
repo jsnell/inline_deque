@@ -340,6 +340,39 @@ public:
         return erase(pos, pos + 1);
     }
 
+    // Insert a single element
+    iterator insert(const_iterator pos, const T& val) {
+        iterator it = make_space(pos, 1);
+        ptr_.construct(&slot(ptr_read(it.i_)), val);
+        return it;
+    }
+
+    // Construct + insert
+    template<typename... Args>
+    iterator emplace(const_iterator pos, Args&&... args) {
+        iterator it = make_space(pos, 1);
+        ptr_.construct(&slot(ptr_read(it.i_)),
+                       std::forward<Args>(args)...);
+        return it;
+    }
+
+    // Move a single element
+    iterator insert(const_iterator pos, T&& val) {
+        iterator it = make_space(pos, 1);
+        ptr_.construct(&slot(ptr_read(it.i_)), val);
+        return it;
+    }
+
+    // Fill a range
+    iterator insert(const_iterator pos, CapacityType n,
+                    const T& val) {
+        iterator it = make_space(pos, n);
+        for (CapacityType i = 0; i < n; ++i) {
+            ptr_.construct(&slot(ptr_read(it.i_ + i)), val);
+        }
+        return it;
+    }
+
     // Misc
 
     Allocator get_allocator() const {
@@ -450,6 +483,43 @@ protected:
         if (empty()) {
             throw std::out_of_range("empty queue");
         }
+    }
+
+    iterator make_space(const_iterator pos, CapacityType count) {
+        if (!count) {
+            return iterator(this, pos.i_);
+        }
+
+        // It might be a good idea to special-case making space at
+        // start / end here. But right now we don't.
+
+        CapacityType move_count = size() - pos.i_;
+        CapacityType last = size() - 1;
+
+        // Make sure we have enough capacity
+        CapacityType needed_capacity = size() + count;
+        if (needed_capacity > capacity_) {
+            CapacityType new_capacity = std::max(static_cast<CapacityType>(1),
+                                                 capacity_) * 2;
+            while (new_capacity < needed_capacity) {
+                new_capacity *= 2;
+            }
+            resize(new_capacity);
+        }
+
+        // Move write pointer forward.
+        ptr_.write_ += count;
+        // Move all elements after pos forward by "count" elements.
+        // This creates a gap in the memory. Leave that memory
+        // uninitialized (caller will call construct() on it).
+        for (CapacityType i = 0; i < move_count; ++i) {
+            CapacityType move_index = last - i;
+            ptr_.construct(&slot(ptr_read(move_index + count)),
+                           std::move(slot(ptr_read(move_index))));
+            ptr_.destroy(&slot(ptr_read(move_index)));
+        }
+
+        return iterator(this, pos.i_);
     }
 
     CapacityType ptr_read(CapacityType offset = 0) const {

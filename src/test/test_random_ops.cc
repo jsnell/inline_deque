@@ -105,6 +105,14 @@ struct Worker {
                              queue_.begin() + end);
             }
         }
+        case 8: {
+            int start = rand_uint64(*rand) % (queue_.size() + 1);
+            int count = rand_uint64(*rand) % 8;
+            if (count) {
+                queue_.insert(queue_.begin() + start, count,
+                              Value(count));
+            }
+        }
         default:
             break;
         }
