@@ -319,6 +319,14 @@ public:
         return const_iterator(this, size());
     }
 
+    const_iterator cbegin() const {
+        return const_iterator(this, 0);
+    }
+
+    const_iterator cend() const {
+        return const_iterator(this, size());
+    }
+
     // Modifications at arbitrary locations, using iterators
 
     iterator erase(const_iterator first, const_iterator last) {
