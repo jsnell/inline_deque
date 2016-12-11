@@ -155,6 +155,15 @@ bool test_no_inline() {
     return true;
 }
 
+bool test_initializer_list() {
+    inline_deque<std::string, 0, 0, uint16_t> q { "a", "b" };
+    EXPECT_INTEQ(q.size(), 2);
+    EXPECT(q.front() == "a");
+    EXPECT(q.back() == "b");
+
+    return true;
+}
+
 int main(void) {
     bool ok = true;
 
@@ -163,6 +172,7 @@ int main(void) {
     TEST(test_move_constructor);
     TEST(test_initial_capacity);
     TEST(test_no_inline);
+    TEST(test_initializer_list);
 
     return !ok;
 }

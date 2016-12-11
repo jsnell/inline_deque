@@ -17,10 +17,9 @@ template<typename T,
          class Allocator = std::allocator<T>>
 class inline_deque {
 public:
-    inline_deque(size_t initial_capacity = InitialCapacity,
-                      const Allocator& alloc = Allocator())
-        : capacity_(initial_capacity),
-          ptr_(alloc) {
+    explicit inline_deque(size_t initial_capacity = InitialCapacity,
+                          const Allocator& alloc = Allocator())
+        : ptr_(alloc) {
         if (initial_capacity > InlineCapacity) {
             capacity_ = 1;
             while (capacity_ < initial_capacity) {
@@ -29,6 +28,14 @@ public:
             e_.e_ = ptr_.allocate(capacity_);
         } else {
             capacity_ = InlineCapacity;
+        }
+    }
+
+    explicit inline_deque(std::initializer_list<T> init,
+                          const Allocator& alloc = Allocator())
+        : inline_deque(init.size(), alloc) {
+        for (auto val : init) {
+            emplace_back(val);
         }
     }
 
