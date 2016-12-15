@@ -189,15 +189,15 @@ int main(int argc, char** argv) {
         sscanf(argv[1], "%d", &n);
     }
     std::map<uint64_t, std::vector<std::string>> csums;
-    test_random<inline_deque<Value, 0, 0, uint16_t>>(
+    test_random<inline_deque<Value, 0, uint16_t>>(
         "inline_deque<0>", n, &csums);
-    test_random<inline_deque<Value, 1, 0, uint16_t>>(
+    test_random<inline_deque<Value, 1, uint16_t>>(
         "inline_deque<1, 0>", n, &csums);
-    test_random<inline_deque<Value, 1, 1, uint16_t>>(
+    test_random<inline_deque<Value, 1, uint16_t>>(
         "inline_deque<1>", n, &csums);
-    test_random<inline_deque<Value, 2, 2, uint16_t>>(
+    test_random<inline_deque<Value, 2, uint16_t>>(
         "inline_deque<2>", n, &csums);
-    test_random<inline_deque<Value, 4, 4, uint16_t>>(
+    test_random<inline_deque<Value, 4, uint16_t>>(
         "inline_deque<4>", n, &csums);
     test_random<inline_deque<Value, 16>>(
         "inline_deque<16>", n, &csums);

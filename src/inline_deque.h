@@ -6,18 +6,22 @@
 #ifndef INLINE_DEQUE_H
 #define INLINE_DEQUE_H
 
-#include <stdexcept>
 #include <cstddef>
 #include <limits>
+#include <stdexcept>
+#include <type_traits>
 
 template<typename T,
          size_t InlineCapacity = 1,
-         size_t InitialCapacity = InlineCapacity,
          typename CapacityType = uint32_t,
          class Allocator = std::allocator<T>>
 class inline_deque {
 public:
-    explicit inline_deque(size_t initial_capacity = InitialCapacity,
+    static_assert(InlineCapacity == 0 ||
+                  (InlineCapacity & (InlineCapacity - 1)) == 0,
+                  "InlineCapacity must be power of two");
+
+    explicit inline_deque(size_t initial_capacity = InlineCapacity,
                           const Allocator& alloc = Allocator())
         : ptr_(alloc) {
         if (initial_capacity > InlineCapacity) {

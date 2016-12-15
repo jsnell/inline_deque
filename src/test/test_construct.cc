@@ -147,7 +147,7 @@ bool test_initial_capacity() {
 }
 
 bool test_no_inline() {
-    inline_deque<std::string, 0, 0, uint16_t> q;
+    inline_deque<std::string, 0, uint16_t> q;
     EXPECT_INTEQ(q.size(), 0);
     q.push_front(std::string("a"));
     EXPECT_INTEQ(q.size(), 1);
@@ -157,7 +157,7 @@ bool test_no_inline() {
 }
 
 bool test_initializer_list() {
-    inline_deque<std::string, 0, 0, uint16_t> q { "a", "b" };
+    inline_deque<std::string, 0, uint16_t> q { "a", "b" };
     EXPECT_INTEQ(q.size(), 2);
     EXPECT(q.front() == "a");
     EXPECT(q.back() == "b");
