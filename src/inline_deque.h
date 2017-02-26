@@ -163,6 +163,28 @@
 #include <stdexcept>
 #include <type_traits>
 
+// The internal implementation of this class is a ring buffer
+// with an array of elements, a capacity, and read/write indices.
+//
+// These indices always use the full rance of CapacityType.
+// We don't manually clamp them to any specific range when
+// incrementing or decrementing them, but let them wrap around
+// to 0 when there is a unsigned integer overflow. Instead
+// we mask the indices into the appropriate range when
+// dereferencing.
+//
+// This allows us to distinguish between a full and empty ring
+// buffer without wasting an element, like in the normal
+// representation.
+//
+// The downsides are:
+// - The capacity must always be a power of two
+// - The maximum capacity is only half the range of CapacityType.
+//   (We've basically borrowed a bit from the index for distinguishing
+//   between full and empty; it's just not a bit at a constant
+//   location...)
+//
+// See: https://www.snellman.net/blog/archive/2016-12-13-ring-buffers/
 template<typename T,
          size_t InlineCapacity = 1,
          typename CapacityType = uint32_t,
@@ -367,6 +389,11 @@ public:
 
     // Iterators
 
+    // Iterators are implemented as a queue + index pair. This means
+    // we need to do some extra work for almost every operation, but
+    // pointers simply aren't a viable representation. (Most importantly,
+    // we'd run into the issues with distinguishing empty/full ring
+    // buffers as discussed earlier).
     template<typename RB, typename VT>
     struct iterator_base {
         typedef std::random_access_iterator_tag iterator_category;
