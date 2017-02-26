@@ -328,7 +328,7 @@ public:
     }
 
     CapacityType max_size() const {
-        return std::numeric_limits<CapacityType>::max() >> 1;
+        return (std::numeric_limits<CapacityType>::max() >> 1) + 1;
     }
 
     CapacityType capacity() const {
@@ -591,7 +591,14 @@ protected:
 
     void overflow() {
         CapacityType new_capacity = capacity_ * 2;
-        resize(new_capacity ? new_capacity : 1);
+        if (new_capacity == 0) {
+            if (capacity_ == 0) {
+                new_capacity = 1;
+            } else {
+                throw std::length_error("max_size exceeded");
+            }
+        }
+        resize(new_capacity);
     }
 
     void shrink() {
@@ -605,8 +612,6 @@ protected:
     }
 
     void resize(CapacityType new_capacity) {
-        // FIXME: somewhere we need to raise an exception if exceeding
-        // max_size().
         new_capacity = std::max(new_capacity,
                                 static_cast<CapacityType>(InlineCapacity));
 
@@ -708,6 +713,9 @@ protected:
                                                  capacity_) * 2;
             while (new_capacity < needed_capacity) {
                 new_capacity *= 2;
+                if (new_capacity == 0) {
+                    throw std::length_error("max_size exceeded");
+                }
             }
             resize(new_capacity);
         }

@@ -51,6 +51,18 @@
         }                                               \
     } while (0)
 
+#define EXPECT_THROW(expr, except)                      \
+    do {                                                \
+        bool ok = false;                                \
+        try { expr; } catch (except& e) { ok = true; }  \
+        if (!ok) {                                      \
+            printf("%s:%d: Expected %s: %s\n",          \
+                   __FILE__, __LINE__,                  \
+                   #except, #expr);                     \
+            return false;                               \
+        }                                               \
+    } while (0)
+
 // A class with some move semantics
 class Value {
 public:

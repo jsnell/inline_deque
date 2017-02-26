@@ -116,6 +116,36 @@ bool test_insert_full() {
     return true;
 }
 
+bool test_insert_max_size() {
+    inline_deque<Value, 4, uint16_t> q;
+
+    EXPECT_INTEQ(q.max_size(), 1 << 15);
+
+    for (int i = 0; i < q.max_size(); ++i) {
+        q.emplace_back(i);
+    }
+
+    EXPECT_INTEQ(q.max_size(), q.size());
+    EXPECT_INTEQ(q.max_size(), q.capacity());
+
+    // Fastpath single element insertion
+    {
+        auto q2 = q;
+        EXPECT_THROW(q2.emplace_back(0),
+                     std::length_error);
+    }
+
+    // Slowpath multi-element insertion
+    {
+        auto q2 = q;
+        EXPECT_THROW(q2.insert(q2.begin() + 1, 1,
+                               q2[0]),
+                     std::length_error);
+    }
+
+    return true;
+}
+
 int main(void) {
     bool ok = true;
 
@@ -123,6 +153,7 @@ int main(void) {
     TEST(test_insert_end);
     TEST(test_insert_middle);
     TEST(test_insert_full);
+    TEST(test_insert_max_size);
 
     return !ok;
 }
