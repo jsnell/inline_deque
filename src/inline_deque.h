@@ -2,6 +2,158 @@
 //
 // Copyright 2016 Juho Snellman, released under a MIT license (see
 // LICENSE).
+//
+// inline_deque is a double-ended queue implementation that can store
+// small queues inline in the queue structure itself, with no
+// additional heap allocation. This class implements most of the C++11
+// std::deque API, but does not use the implementation strategy of
+// multiple separate storage arrays. The performance characteristics
+// will thus be different. The main tradeoff is between much lower
+// memory overhead for small collections, but higher overhead and
+// more copies for large collections.
+//
+// Move semantics are fully supported.
+//
+// Invalidation:
+// * Insertion or deletion of elements will invalidate any iterators
+//   pointing to elements after the insertion/deletion points, including
+//   the past-the-end iterator. They will not invalidate iterators pointing
+//   to elements before the insertion/deletion point.
+// * References to elements will be invalidated by any insertion or
+//   deletion that causes the queue to be resized. Insertions will
+//   cause a resizing if the queue does not have sufficient space for
+//   all the elements being inserted. Deletions may (but are not
+//   guaranteed to) cause a resizing if after removal the size is
+//   less than half the capacity.
+//
+// Template parameters:
+//
+// * typename T
+//   The type of the elements
+// * size_t InlineCapacity
+//   The maximum number of elements to store inline. This number should
+//   be a power of two.
+// * typename CapacityType
+//   The type of the indices
+// * class Allocator
+//   The allocator used for memory allocation and element
+//   construction / destruction
+//
+// Constructors:
+//
+// * inline_deque(size_t initial_capacity = InlineCapacity,
+//                const Allocator& alloc = Allocator()) -
+//   Construct a new queue with space for initial_capacity elements.
+//   Will be rounded up to either InlineCapacity or a power of two,
+//   which ever is higher.
+// * inline_deque(std::initializer_list<T> init,
+//                const Allocator& alloc = Allocator())
+//   Construct a new queue, setting the contents to the elements of
+//   the initializer list. The queue might have excess capacity
+//   after construction; the capacity will be initialized to either
+//   InlineCapacity or the next power of two from the size of the
+//   initializer list, which ever is higher.
+//
+// Modifying elements:
+//
+// * void push_front(const T& e)
+// * void push_back(const T& e)
+//   Insert a copy of this element at the head/tail of the queue.
+//   If queue is full, it will automatically be resized to a larger
+//   capacity.
+// * template<typename... Args> void emplace_front(Args&&... args)
+// * template<typename... Args> void emplace_back(Args&&... args)
+//   Construct a new element at the head/tail of the queue.
+//   Insert a copy of this element at the head/tail of the queue.
+//   If queue is full, it will automatically be resized to a larger
+//   capacity.
+// * void pop_front()
+// * void pop_back()
+//   Remove the element at the head/tail of the queue. The element
+//   will be destroyed. Raises an exception if the queue is empty.
+//
+// Accessing elements:
+// * const T& front() const
+// * const T& back() const
+// * T& front()
+// * T& back()
+//   Return a reference to the element at the head/tail of the queue.
+//   Raises an exception if the queue is empty.
+// * T& operator[] (size_t i)
+// * const T& operator[] (size_t i) const
+//   Access the specified element, counting from the head of the queue.
+//   No bounds checking.
+// * T& at(size_t i)
+//   Access the specified element, counting from the head of the queue.
+//   Raises an exception if the index is as large or larger than the
+//   current size of the queue.
+//
+// Size and capacity:
+//
+// * bool empty() const
+//   Return true if the queue contains no elements.
+// * CapacityType size() const
+//   Return the number of elements currently in the queue.
+// * CapacityType max_size() const
+//   Return the maximum number of elements that can be stored in the
+//   queue. (In practice this will be half of the maximum number
+//   representable by CapacityType).
+// * CapacityType capacity() const
+//   Return the number of elements that can be stored int he queue
+//   without it being resized.
+// * void clear()
+//   Remove all elements from the queue.
+// * void shrink_to_fit()
+//   Resize the queue such that it is using as little memory as possible,
+//   given the constraints of having to still contain all the elements,
+//   and the capacity having to be a power of two.
+//
+// Copying / assignment
+//
+// * inline_deque(const inline_deque& other)
+//   Construct a new queue by copying the queue that was passed in.
+// * inline_deque(inline_deque&& other)
+//   Construct a new queue by moving the internal state of the queue
+//   that was passed in.
+// * inline_deque& operator=(const inline_deque& other)
+//   Replace the internal state of the queue by copying over the
+//   state of the queue that was passed in.
+// * inline_deque& operator=(inline_deque&& other)
+//   Replace the internal state of the queue by moving over the
+//   state of another queue.
+//
+// Iterators
+//
+// inline_deque implements random access iterators. It does not
+// implement reverse iterators.
+//
+// * iterator begin()
+// * iterator end()
+//   Return an iterator to the start of the queue, or to the
+//   point past the end of the queue.
+// * const_iterator begin() const
+// * const_iterator end() const
+// * const_iterator cbegin() const
+// * const_iterator cend() const
+//   Return a constant iterator to the start of the queue, or to the
+//   point past the end of the queue.
+//
+// Iterator operators:
+// * iterator erase(const_iterator pos)
+//   Erase the element at the specified position.
+// * iterator erase(const_iterator first, const_iterator last)
+//   Erase the elements in the specified range.
+// * iterator insert(const_iterator pos, const T& val)
+//   Insert a copy of the element at the specified position.
+// * template<typename... Args> iterator emplace(const_iterator pos, Args&&... args)
+//   Construct a new element at the specified position.
+// * iterator insert(const_iterator pos, T&& val)
+//   Move the element into the specified position.
+//
+// Misc
+// * Allocator get_allocator() const
+//   Return the allocator used for this queue.
+
 
 #ifndef INLINE_DEQUE_H
 #define INLINE_DEQUE_H
@@ -19,7 +171,7 @@ class inline_deque {
 public:
     static_assert(InlineCapacity == 0 ||
                   (InlineCapacity & (InlineCapacity - 1)) == 0,
-                  "InlineCapacity must be power of two");
+                  "InlineCapacity must be a power of two");
 
     explicit inline_deque(size_t initial_capacity = InlineCapacity,
                           const Allocator& alloc = Allocator())
@@ -116,6 +268,13 @@ public:
     }
 
     T& at(size_t i) {
+        if (i >= size()) {
+            throw std::out_of_range("index too large");
+        }
+        return slot(ptr_read(i));
+    }
+
+    const T& at(size_t i) const {
         if (i >= size()) {
             throw std::out_of_range("index too large");
         }
@@ -419,6 +578,8 @@ protected:
     }
 
     void resize(CapacityType new_capacity) {
+        // FIXME: somewhere we need to raise an exception if exceeding
+        // max_size().
         new_capacity = std::max(new_capacity,
                                 static_cast<CapacityType>(InlineCapacity));
 
