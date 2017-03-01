@@ -33,7 +33,7 @@ struct Worker {
 
         auto val = rand_uint64(*rand) & 0xffff;
         if (queue_.size() < target_) {
-            switch (val & 3) {
+            switch (val & 7) {
             case 0:
                 queue_.push_back(Value(val));
                 break;
@@ -46,6 +46,16 @@ struct Worker {
             case 3:
                 queue_.emplace_front(val);
                 break;
+            case 4: {
+                Value v(val);
+                queue_.push_back(v);
+                break;
+            }
+            case 5: {
+                Value v(val);
+                queue_.push_front(v);
+                break;
+            }
             }
         } else {
             if (val & 1) {

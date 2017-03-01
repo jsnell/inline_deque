@@ -61,6 +61,10 @@
 //   Insert a copy of this element at the head/tail of the queue.
 //   If queue is full, it will automatically be resized to a larger
 //   capacity.
+// * void push_front(T&& e)
+// * void push_back(T&& e)
+//   Move this element to the the head/tail of the queue. If queue is
+//   full, it will automatically be resized to a larger capacity.
 // * template<typename... Args> void emplace_front(Args&&... args)
 // * template<typename... Args> void emplace_back(Args&&... args)
 //   Construct a new element at the head/tail of the queue.
@@ -144,11 +148,14 @@
 // * iterator erase(const_iterator first, const_iterator last)
 //   Erase the elements in the specified range.
 // * iterator insert(const_iterator pos, const T& val)
-//   Insert a copy of the element at the specified position.
+//   Make space for a new element at the specified position, and insert
+//   a copy of the element there.
 // * template<typename... Args> iterator emplace(const_iterator pos, Args&&... args)
-//   Construct a new element at the specified position.
+//   Make space for a new element at the specified position, and construct
+//   a new element there.
 // * iterator insert(const_iterator pos, T&& val)
-//   Move the element into the specified position.
+//   Make space for a new element at the specified position, and move
+//   the element there.
 //
 // Misc
 // * Allocator get_allocator() const
@@ -236,6 +243,22 @@ public:
             overflow();
         }
         ptr_.construct(&slot(ptr_write()), e);
+        ptr_.write_++;
+    }
+
+    void push_front(T&& e) {
+        if (full()) {
+            overflow();
+        }
+        ptr_.read_--;
+        ptr_.construct(&slot(ptr_read()), std::move(e));
+    }
+
+    void push_back(T&& e) {
+        if (full()) {
+            overflow();
+        }
+        ptr_.construct(&slot(ptr_write()), std::move(e));
         ptr_.write_++;
     }
 
@@ -564,7 +587,7 @@ public:
     // Move a single element
     iterator insert(const_iterator pos, T&& val) {
         iterator it = make_space(pos, 1);
-        ptr_.construct(&slot(ptr_read(it.i_)), val);
+        ptr_.construct(&slot(ptr_read(it.i_)), std::move(val));
         return it;
     }
 

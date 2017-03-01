@@ -59,14 +59,14 @@ bool test_copy_constructor() {
 
     q1.push_back(CopyCounter(3));
     EXPECT_INTEQ(normal_constructor_count, 1);
-    EXPECT_INTEQ(copy_constructor_count, 1);
-    EXPECT_INTEQ(move_constructor_count, 0);
+    EXPECT_INTEQ(copy_constructor_count, 0);
+    EXPECT_INTEQ(move_constructor_count, 1);
     EXPECT_INTEQ(destructor_count, 1);
 
     inline_deque<CopyCounter> q2(q1);
     EXPECT_INTEQ(normal_constructor_count, 1);
-    EXPECT_INTEQ(copy_constructor_count, 2);
-    EXPECT_INTEQ(move_constructor_count, 0);
+    EXPECT_INTEQ(copy_constructor_count, 1);
+    EXPECT_INTEQ(move_constructor_count, 1);
     EXPECT_INTEQ(destructor_count, 1);
     EXPECT_INTEQ(q2.size(), q1.size());
     EXPECT(&q2.front() != &q1.front());
